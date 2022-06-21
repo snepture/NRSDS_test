@@ -1,0 +1,15 @@
+"""
+Description: Dump all Ports Counters
+Timeout: 10
+Variables:
+ fpp_or_index(str): List of FPP or Indexes of Ports
+ clear(str): clear-on-read enable if Ture, default False
+Defaults:
+ fpp_or_index:
+ clear: "False"
+"""
+{% if fpp_or_index -%}
+dapi.dump_port_counters(fpp_or_index=[{{fpp_or_index}}],clear={{clear}})
+{% else %}
+dapi.dump_port_counters(clear={{clear}})
+{% endif %}

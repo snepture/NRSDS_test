@@ -1,0 +1,14 @@
+"""
+Description: Dump Port related Ingress Qos Information, include mapping of DSCP to queue
+Timeout: 10
+Variables:
+ fpp_or_spid(str): List of FPP or System Port ID of Ports
+Defaults:
+ fpp_or_spid:
+ ipv:
+"""
+{% if fpp_or_spid -%}
+dapi.dump_ports_ig_qos({{fpp_or_spid}})
+{% else %}
+dapi.dump_ports_ig_qos()
+{% endif %}

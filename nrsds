@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+# BEGIN_LEGAL
+#
+# Copyright (c) 2019-current, Cisco Systems, Inc. ("Cisco"). All Rights Reserved.
+#
+# This file and all technical concepts, proprietary knowledge, algorithms and
+# intellectual property rights it contains (collectively the "Confidential Information"),
+# are the sole propriety information of Cisco and shall remain at Cisco's ownership.
+# You shall not disclose the Confidential Information to any third party and you
+# shall use it solely in connection with operating and/or maintaining of Cisco's
+# products and pursuant to the terms and conditions of the license agreement you
+# entered into with Cisco.
+#
+# THE SOURCE CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+# IN NO EVENT SHALL CISCO BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+# AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
+# THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+# END_LEGAL
+
+# Sai debug shell (sds) utility.
+# This is the client side of the non-reside sai debug shell utility.
+
+import argparse
+import socket
+import sys
+import os
+# import readline
+import re
+import time
+import threading
+import select
+
+
+SAI_DEBUG_SHELL_URI = '/var/run/sai_debug_shell.sock'
+
+HOST = '127.0.0.1'
+PORT = 12345
+
+
+def remoteConnect(server_address):
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.connect(server_address)
+    return s
+
+
+def legacyRemoteConnect():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((HOST, PORT))
+    return s
+
+
+def checkSdsService(unix_sock_path):
+    basepath = os.path.basename(unix_sock_path)
+    (basename, extname) = os.path.splitext(basepath)
+    output = os.popen('netstat -an').read()
+    for line in output.splitlines():
+        match = re.match("unix.*%s.*" % basename, line)
+        if match != None:
+            return 'unix'
+        match = re.match("tcp.*12345.*LISTEN", line)
+        if match != None:
+            return 'inet'
+    return None
+
+def printCommandResponse(s):
+    s.setblocking(0)
+    while True:
+        response = ''
+        ready = select.select([s], [], [], 2)
+        if ready[0]:
+            response = s.recv(500).decode()
+            if len(response) == 0:
+                break
+            elif response == '>>> ':
+                print("")
+            elif response == 'True':
+                print("Packets are already loaded.\n")
+            else:
+                print(response)
+            sys.stdout.flush()
+
+def sendCommand(s, cmd):
+    s.send(cmd.encode())
+
+def main(arguments):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('cmd', help='Input the cmd', type=str)
+    parser.add_argument('-t', '--timeout', default=5, type=int)
+
+
+    cli_args = parser.parse_args(arguments)
+    if '()' not in cli_args.cmd:
+        cli_args.cmd =cli_args.cmd+'()'
+
+    sock_stream_path = SAI_DEBUG_SHELL_URI
+    
+    srv = checkSdsService(sock_stream_path)
+    s = None
+    if srv == 'unix':
+        s = remoteConnect(sock_stream_path)
+    elif srv == 'inet':
+        s = legacyRemoteConnect()
+    else:
+        print('SAI Debug Shell is not ready!')
+        return
+
+    # history_file = "/root/.shell_history"
+    # if os.path.isfile(history_file):
+    #     readline.set_history_length(500)
+    #     readline.read_history_file(history_file)
+    # else:
+    #     f = open(history_file, 'a+')
+    #     f.close()
+    # readline.parse_and_bind("tab: complete")
+    
+    sendCommand(s, "print('/usr/lib/cisco/pylib/leaba/debug_tools' in sys.path)\n")
+    res=""
+    while True:
+        res = s.recv(500).decode()
+        if "True" in res or "sys" in res:
+            break
+
+    if "True" not in res:
+        print("First time run, please wait to load related packets ...\n")
+        sendCommand(s, "import sys\n")
+        time.sleep(0.5)
+        sendCommand(s, "import os\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.path.append(\"/usr/lib/cisco/pylib/leaba/..\")\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.path.append(\"/usr/lib/cisco/pylib/leaba\")\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.path.append(\"/usr/lib/cisco/pylib/leaba/debug_tools\")\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.path.append(\"/usr/lib/cisco/pylib/leaba/debug_tools/hw_tables/lpm\")\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.LEABA_SDK_PATH=\"/usr/lib/cisco/pylib/leaba\"\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.LEABA_VALIDATION_PATH=\"/validation_tool/validation-gibraltar-ex-1.53.0.ph2EA3.1\"\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.path.append(sys.LEABA_VALIDATION_PATH)\n")
+        time.sleep(0.5)
+        sendCommand(s, "sys.path.append(sys.LEABA_SDK_PATH)\n")
+        time.sleep(0.5)
+        sendCommand(s, "from leaba import sdk\n")
+        time.sleep(0.5)
+        sendCommand(s, "la_device = sdk.la_get_device(0)\n")
+        time.sleep(0.5)
+        sendCommand(s, "from leaba_val import *\n")
+        time.sleep(0.5)
+        sendCommand(s, "os.environ['BASE_OUTPUT_DIR'] = \"/opt/cisco/silicon-one/\"\n")
+        time.sleep(0.5)
+        sendCommand(s, "set_dev(la_device)\n")
+        time.sleep(0.5)
+        sendCommand(s, "from leaba.debug_api import *\n")
+        time.sleep(0.5)
+        sendCommand(s, "dapi = DebugApi()\n")
+        time.sleep(0.5)
+        sendCommand(s, "from leaba.dbg import *\n")
+        time.sleep(0.5)
+        sendCommand(s, "dbg=dbg_dev(la_device)\n")
+        time.sleep(0.5)
+        sys.stdout.flush()
+        print("Packets are already loaded.\n")
+
+    # start command display thread
+    t = threading.Thread(target=printCommandResponse, args=(s,))
+    t.start()
+
+    try:
+        sendCommand(s, cli_args.cmd + '\n')
+    except Exception as e:
+        print("Error: " + str(e))
+
+    time.sleep(cli_args.timeout)
+    # readline.write_history_file(history_file)
+
+    s.close()
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

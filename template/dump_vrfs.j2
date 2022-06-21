@@ -1,0 +1,19 @@
+"""
+Description: Dump VRF Entries
+Timeout: 10
+Variables:
+ vrf_indexes(str): List of indexes of VRF objects
+ ipv(str): 4 or 6 as ipv4 or ipv6 route enteries
+Defaults:
+ vrf_indexes:
+ ipv:
+"""
+{% if vrf_indexes -%}
+{% if ipv -%}
+dapi.dump_vrfs(vrf_indexes=[{{vrf_indexes}}],ipv={{ipv}})
+{% else %}
+dapi.dump_vrfs(vrf_indexes=[{{vrf_indexes}}])
+{% endif %}
+{% else %}
+dapi.dump_vrfs()
+{% endif %}

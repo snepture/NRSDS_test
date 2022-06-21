@@ -1,0 +1,3 @@
+default:
+  LEABA_SDK_PATH: /usr/lib/cisco/pylib/leaba
+  LEABA_VALIDATION_PATH: /usr/lib/cisco/pylib/leaba/debug_tools/hw_tables/lpm

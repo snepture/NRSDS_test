@@ -1,0 +1,13 @@
+"""
+Description: Dump Port Basic Information.
+Timeout: 10
+Variables:
+ fpp_or_index(str): List of FPP or Indexes of Ports
+Defaults:
+ fpp_or_index
+"""
+{% if fpp_or_index -%}
+dapi.dump_ports(fpp_or_index=[{{fpp_or_index}}])
+{% else %}
+dapi.dump_ports()
+{% endif %}

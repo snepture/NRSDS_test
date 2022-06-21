@@ -1,0 +1,17 @@
+"""
+Description: Show vlan command.
+Timeout: 10
+Variables:
+ id(int): the id of the vlan
+ name(str): the name of vlan
+Defaults:
+ name:
+ id:
+"""
+{% if name -%}
+show vlan {{name}}
+{% elif id -%}
+show vlan {{id}}
+{% else %}
+show vlan
+{% endif %}
